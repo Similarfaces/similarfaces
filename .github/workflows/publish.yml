@@ -1,28 +1,29 @@
 name: Publish to PyPI
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-actions:
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
-on: [push]
-
+on:
   release:
     types: [published]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Set the Node 24 flag at the job level to ensure it applies to all steps
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6  # Upgraded from v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6 # Upgraded from v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
 
       - name: Install build tools
-        run: pip install build twine
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
 
       - name: Build package
         run: python -m build
@@ -31,4 +32,4 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload dist/*
+        run: python -m twine upload dist/*
