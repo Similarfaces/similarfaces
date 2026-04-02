@@ -1,16 +1,16 @@
 name: Publish to PyPI
-  # Set the Node 24 flag at the job level to ensure it applies to all steps
-env:
-   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   release:
     types: [published]
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-  
+# This ensures the runner uses the latest Node.js runtime for actions
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
+          python-version: '3.10' # or '3.11' / '3.12'
 
       - name: Install build tools
         run: |
@@ -26,10 +26,13 @@ jobs:
           pip install build twine
 
       - name: Build package
-        run: python -m build
+        run: |
+          rm -rf dist/
+          python -m build
 
       - name: Publish to PyPI
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: python -m twine upload dist/*
+        # --skip-existing prevents the 400 error if the version already exists
+        run: python -m twine upload --skip-existing dist/*
