@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 import onnxruntime as ort
@@ -56,7 +57,7 @@ class FaceDetector:
         self,
         model_path: str = None,
         input_size: Tuple[int, int] = (320, 320),
-        score_threshold: float = 0.8,
+        score_threshold: float = 0.5,
         use_letterbox: bool = True,
         providers: List[str] = ["CPUExecutionProvider"]
     ) -> None:
@@ -66,7 +67,7 @@ class FaceDetector:
         Args:
             model_path (str, optional): Path to the detection ONNX model.
             input_size (Tuple[int, int]): Model input size (width, height). Defaults to (320, 320).
-            score_threshold (float): Confidence threshold for detection. Defaults to 0.8.
+            score_threshold (float): Confidence threshold for detection. Defaults to 0.5.
             use_letterbox (bool): Whether to use letterbox resizing. Defaults to True.
             providers (List[str]): ONNX Runtime execution providers.
         """
@@ -76,9 +77,14 @@ class FaceDetector:
         self.use_letterbox = use_letterbox
         self.providers = providers
 
-        # Core session
+        # Optimized session options
+        opts = ort.SessionOptions()
+        opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        opts.intra_op_num_threads = os.cpu_count() or 4
+
         try:
-            self.session = ort.InferenceSession(self.model_path, providers=providers)
+            self.session = ort.InferenceSession(self.model_path, sess_options=opts, providers=providers)
             self.input_name = self.session.get_inputs()[0].name
             self.output_names = [out.name for out in self.session.get_outputs()]
         except Exception as e:
