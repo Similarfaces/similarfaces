@@ -144,45 +144,26 @@ class FaceDetector:
             return []
 
         pred = pred[mask]
-        scores = scores[mask]
+        scores = pred[:, 4]
 
         dw, dh = pad
         orig_h, orig_w = orig_shape
 
-        results = []
-        for detection in pred:
-            confidence = float(detection[4])
+        # Vectorized bbox decoding (undo letterbox for all detections at once)
+        boxes = pred[:, :4].copy()
+        boxes[:, [0, 2]] = np.clip((boxes[:, [0, 2]] - dw) / scale, 0, orig_w)
+        boxes[:, [1, 3]] = np.clip((boxes[:, [1, 3]] - dh) / scale, 0, orig_h)
+        boxes = boxes.astype(np.float32)
 
-            # Decode bounding box (undo letterbox)
-            x1 = (detection[0] - dw) / scale
-            y1 = (detection[1] - dh) / scale
-            x2 = (detection[2] - dw) / scale
-            y2 = (detection[3] - dh) / scale
+        # Vectorized keypoint decoding (extract x,y from triplets, skip visibility)
+        kpt_x = np.clip((pred[:, [6, 9, 12, 15, 18]] - dw) / scale, 0, orig_w)
+        kpt_y = np.clip((pred[:, [7, 10, 13, 16, 19]] - dh) / scale, 0, orig_h)
+        landmarks = np.stack([kpt_x, kpt_y], axis=-1).astype(np.float32)
 
-            # Clip to image bounds
-            x1 = np.clip(x1, 0, orig_w)
-            y1 = np.clip(y1, 0, orig_h)
-            x2 = np.clip(x2, 0, orig_w)
-            y2 = np.clip(y2, 0, orig_h)
-
-            bbox = np.array([x1, y1, x2, y2], dtype=np.float32)
-
-            # Decode 5 keypoints (triplets: x, y, visibility)
-            kpts_raw = detection[6:]
-            landmarks = np.zeros((5, 2), dtype=np.float32)
-            for i in range(5):
-                kx = (kpts_raw[i * 3] - dw) / scale
-                ky = (kpts_raw[i * 3 + 1] - dh) / scale
-                landmarks[i, 0] = np.clip(kx, 0, orig_w)
-                landmarks[i, 1] = np.clip(ky, 0, orig_h)
-
-            results.append(Face(
-                bbox=bbox,
-                score=confidence,
-                landmarks=landmarks
-            ))
-
-        return results
+        return [
+            Face(bbox=boxes[i], score=float(scores[i]), landmarks=landmarks[i])
+            for i in range(len(scores))
+        ]
 
     def detect(self, image: np.ndarray, score_quality: Optional[bool] = None) -> List[Face]:
         """
@@ -220,4 +201,5 @@ class FaceDetector:
                 face.quality_score = self._scorer.score(aligned)
                 
         return faces
+
 
