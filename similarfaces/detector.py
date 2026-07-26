@@ -58,6 +58,7 @@ class FaceDetector:
         model_path: str = None,
         input_size: Tuple[int, int] = (320, 320),
         score_threshold: float = 0.5,
+        score_quality: bool = True,
         use_letterbox: bool = True,
         providers: List[str] = ["CPUExecutionProvider"]
     ) -> None:
@@ -68,12 +69,14 @@ class FaceDetector:
             model_path (str, optional): Path to the detection ONNX model.
             input_size (Tuple[int, int]): Model input size (width, height). Defaults to (320, 320).
             score_threshold (float): Confidence threshold for detection. Defaults to 0.5.
+            score_quality (bool): Whether to calculate quality scores by default. Defaults to True.
             use_letterbox (bool): Whether to use letterbox resizing. Defaults to True.
             providers (List[str]): ONNX Runtime execution providers.
         """
         self.model_path = model_path or get_model_path("detect.onnx")
         self.input_width, self.input_height = input_size
         self.score_threshold = score_threshold
+        self.score_quality = score_quality
         self.use_letterbox = use_letterbox
         self.providers = providers
 
@@ -181,19 +184,23 @@ class FaceDetector:
 
         return results
 
-    def detect(self, image: np.ndarray, score_quality: bool = True) -> List[Face]:
+    def detect(self, image: np.ndarray, score_quality: Optional[bool] = None) -> List[Face]:
         """
         Detect faces and optionally assess their quality.
         
         Args:
             image (np.ndarray): Image in BGR format.
-            score_quality (bool): Whether to calculate quality scores for each face.
+            score_quality (bool, optional): Whether to calculate quality scores for each face.
+                If None, uses the instance default set in __init__.
             
         Returns:
             List[Face]: Detected faces.
         """
         if image is None or image.size == 0:
             return []
+
+        if score_quality is None:
+            score_quality = self.score_quality
 
         # 1. Base Detection
         orig_shape = image.shape[:2]
