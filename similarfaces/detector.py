@@ -84,7 +84,8 @@ class FaceDetector:
         opts = ort.SessionOptions()
         opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-        opts.intra_op_num_threads = os.cpu_count() or 4
+        # Limit threads to avoid context switching overhead on high-core machines
+        opts.intra_op_num_threads = min(os.cpu_count() or 4, 8)
 
         try:
             self.session = ort.InferenceSession(self.model_path, sess_options=opts, providers=providers)
